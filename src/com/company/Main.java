@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -81,7 +82,6 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
     public void actionPerformed(ActionEvent actionEvent) {
         for (Coin coin : coinList) {
             if (coin.getMotion()) {
-                System.out.println("we are moving coin");
                 moveCoin(coin);
                 determineCoinCollision(coin);
             }
@@ -124,33 +124,60 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
         }
         // check if coin has hit switch in this iteration
         for (Switch Switch : switchList) {
-            if ((coin.getY() == Switch.getY()) && (!Switch.getHasCoin())) {
-                coin.setMotion(false);
-                Switch.setCoin(coin);
+            if (Switch.getOrientation() == "left") {
+                // detect: coin is same height as switch + switch doesn't have coin already + coin collides with lever part of switch
+                if ((coin.getY() == Switch.getY()) && ((coin.getX() > Switch.getX() + Switch.getWidth() / 2) && (coin.getX() < Switch.getX() + Switch.getWidth()))) {
+                    if (!Switch.getHasCoin()) {
+                        Switch.setCoin(coin);
+                        coin.setMotion(false);
+                        Switch.setHasCoin();
+                    } else {
+                        coin.setX(coin.getX() - 50);
+                    }
+                } else if (((coin.getX() > Switch.getX()) && (coin.getX() < Switch.getX() + Switch.getWidth() / 2)) && (coin.getY() == Switch.getY() + Switch.getHeight() / 2)) {
+                    if (!Switch.getHasCoin()) {
+                        Switch.flipSwitch();
+                    } else {
+                        Switch.flipSwitch();
+                        Coin presentCoin = Switch.getCoin();
+                        presentCoin.setMotion(true);
+                        Switch.coin = null;
+                    }
+                }
+            } else {
+                if ((coin.getY() == Switch.getY()) && ((coin.getX() > Switch.getX() + Switch.getWidth() / 2 && (coin.getX() < Switch.getX() + Switch.getWidth())))) {
+                    if (!Switch.getHasCoin()) {
+                        Switch.setCoin(coin);
+                        coin.setMotion(false);
+                        Switch.setHasCoin();
+                    } else {
+                        coin.setX(coin.getX() + 50);
+                    }
+                } else if (((coin.getX() < Switch.getX() + Switch.getWidth() / 2) && (coin.getX() > Switch.getX())) && (coin.getY() == Switch.getY() + Switch.getHeight() / 2)) {
+                    if (!Switch.getHasCoin()) {
+                        Switch.flipSwitch();
+                    } else {
+                        Switch.flipSwitch();
+                        Coin presentCoin = Switch.getCoin();
+                        presentCoin.setMotion(true);
+                        Switch.coin = null;
+                    }
 
-                // we SET THE COIN that has just collided with switch to be stored as a parameter in switch object
-                Switch.setHasCoin();
-            } else if ((coin.getY() == Switch.getY()) && (Switch.getHasCoin())) {
-                // since we collided with a switch that HAS A COIN, set the coin stored in the switch to start moving too
-                Switch.coin.setMotion(true);
-                Switch.setHasCoin();
-                Switch.coin = null;
+                }
             }
         }
 
     }
-
     @Override
+
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         for (Coin coin : coinList) {
             BufferedImage image;
             try {
-                System.out.println("painting coin");
                 image = ImageIO.read(new File("resources/TDcircle.png"));
                 // draw the coin at its location!
                 g.drawImage(image, coin.getX(), coin.getY(), this);
-                System.out.println(coin.getY());
             } catch (IOException e) {
                 System.out.println("cant read image");
             }
@@ -158,9 +185,15 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
         for (Switch Switch : switchList) {
             BufferedImage image;
             try {
-                image = ImageIO.read(new File("resources/tdSwitch.png"));
                 // draw the switch at its location!
-                g.drawImage(image, Switch.getX(), Switch.getY(), this);
+                if (Switch.getOrientation() == "left") {
+                    image = ImageIO.read(new File("resources/tdSwitch.png"));
+                    g.drawImage(image, Switch.getX(), Switch.getY(), this);
+                } else {
+                    image = ImageIO.read(new File("resources/tdSwitch-rotated.png"));
+                    g.drawImage(image, Switch.getX(), Switch.getY(), this);
+                    //Reset our graphics object so we can draw with it again.
+                }
             } catch (IOException e) {
                 System.out.println("cant read image");
             }
@@ -190,7 +223,7 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
 
     void moveCoin(Coin coin) {
         // make coin drop vertically 1 pixel at a time
-        coin.setY(coin.getY() + 1);
+        coin.setY(coin.getY() + 2);
     }
 
     @Override
@@ -234,8 +267,11 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
         }
 
         void setY(int newVal) {
-            System.out.println("we are in setY in coin");
             this.ycoord = newVal;
+        }
+
+        void setX(int newVal) {
+            this.xcoord = newVal;
         }
 
         int getX() {
@@ -263,6 +299,8 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
         // Switch is a subclass of the game panel class, so its constuctor is callable from within that class
         // Here to define the parameters of a switch
         private String orientation;
+        private int width;
+        private int height;
         private int xcoord;
         private int ycoord;
         private boolean hasCoin;
@@ -276,14 +314,16 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
             this.orientation = orient;
             this.xcoord = x;
             this.ycoord = y;
+            this.width = 200;
+            this.height = 200;
 
         }
 
         void flipSwitch() {
-            if (this.getOrientation() == "left") {
-                this.setOrientation("right");
+            if (this.orientation == "left") {
+                this.orientation = "right";
             } else {
-                this.setOrientation("left");
+                this.orientation = "left";
             }
         }
 
@@ -293,6 +333,14 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
 
         int getX() {
             return this.xcoord;
+        }
+
+        int getWidth() {
+            return this.width;
+        }
+
+        int getHeight() {
+            return this.height;
         }
 
         String getOrientation() {
@@ -311,8 +359,9 @@ class GamePanel extends JPanel implements ActionListener, MouseListener {
             this.coin = coin;
         }
 
-        void setOrientation(String newOrient) {
-            this.orientation = newOrient;
+
+        Coin getCoin() {
+            return this.coin;
         }
     }
 }
